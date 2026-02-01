@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Research Insight System</title>
+
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+<div class="container">
+
+  <!-- HEADER -->
+  <div class="header">
+    <h1>Research Insight System</h1>
+    <p>Intelligent Research Discovery using SQL, NoSQL & Advanced Analytics</p>
+  </div>
+
+  <!-- DOMAIN SEARCH -->
+  <div class="section">
+    <h3>🔍 Domain Search (SQL)</h3>
+    <div class="input-group">
+      <input id="d" placeholder="AI, IoT, ML">
+      <button onclick="domainSearch()">Search</button>
+    </div>
+    <div id="dr"></div>
+  </div>
+
+  <!-- KEYWORD SEARCH -->
+  <div class="section">
+    <h3>🧠 Keyword Search</h3>
+    <div class="input-group">
+      <input id="k" placeholder="privacy, healthcare">
+      <button onclick="keywordSearch()">Search</button>
+    </div>
+    <div id="kr"></div>
+  </div>
+
+  <!-- TOPIC SEARCH -->
+  <div class="section">
+    <h3>📊 Topic Search</h3>
+    <div class="input-group">
+      <input id="t" placeholder="healthcare">
+      <button onclick="topicSearch()">Search</button>
+    </div>
+    <div id="tr"></div>
+  </div>
+<div class="section">
+  <h3>📘 Paper Quality (Quartile-wise)</h3>
+  <p class="hint">
+    Shows journal quartile classification for each publication.
+  </p>
+
+  <button onclick="loadPaperQuartiles()">Load Paper Quartiles</button>
+
+  <table class="insight-table" id="paperQualityTable">
+    <thead>
+      <tr>
+        <th>Paper Title</th>
+        <th>Domain</th>
+        <th>Quartile</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+
+  <table class="insight-table" id="paperQualityTable">
+    <thead>
+      <tr>
+        <th>Paper Title</th>
+        <th>Domain</th>
+        <th>Quartile</th>
+      </tr>
+    </thead>
+    <tbody></tbody>
+  </table>
+</div>
+
+  <!-- YEAR TREND -->
+  <div class="section">
+    <h3>📈 Year-wise Publication Trend</h3>
+    <button onclick="loadYearAnalytics()">Load Trend</button>
+    <div class="chart-box">
+  <canvas id="yearChart"></canvas>
+</div>
+
+  </div>
+
+  <!-- DOMAIN TREND -->
+  <div class="section">
+    <h3>📊 Domain-wise Publication Trend</h3>
+    <button onclick="loadDomainAnalytics()">Load Domain Trend</button>
+    <div class="chart-box">
+  <canvas id="domainChart"></canvas>
+</div>
+
+  </div>
+
+  <!-- TOP AUTHORS -->
+  <div class="section">
+    <h3>🏆 Top Authors</h3>
+    <button onclick="loadTopAuthors()">Load Top Authors</button>
+    <div class="chart-box">
+  <canvas id="authorChart"></canvas>
+</div>
+
+  </div>
+
+  <!-- INFLUENCE SCORE -->
+  <div class="section">
+    <h3>🥇 Faculty Research Influence Score</h3>
+    <p class="hint">Score considers productivity and recent research contribution.</p>
+    <button onclick="loadInfluence()">Compute Influence</button>
+    <div class="chart-box">
+  <canvas id="influenceChart"></canvas>
+</div>
+
+  </div>
+
+  <!-- RESEARCH GAP -->
+  <div class="section">
+    <h3>🧠 Intelligent Research Gap Detection</h3>
+    <button onclick="loadResearchGap()">Analyze Research Gaps</button>
+
+    <table class="insight-table" id="gapTable">
+      <thead>
+        <tr>
+          <th>Domain</th>
+          <th>Total Papers</th>
+          <th>Growth</th>
+          <th>Status</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <!-- DOMAIN–AUTHOR NETWORK -->
+  <div class="section">
+    <h3>🧩 Domain–Author Relationship Mapping</h3>
+    <button onclick="loadNetwork()">Show Mapping</button>
+
+    <table class="insight-table" id="networkTable">
+      <thead>
+        <tr>
+          <th>Faculty</th>
+          <th>Domain</th>
+          <th>Papers</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+/* ---------------- SEARCH RENDER ---------------- */
+function renderResults(data, target) {
+  if (!data.length) {
+    target.innerHTML = "<p class='empty'>No papers found</p>";
+    return;
+  }
+
+  target.innerHTML = data.map(p => `
+    <div class="paper-card">
+      <h4>${p.title}</h4>
+      <p class="meta">👨‍🏫 ${p.authors}<br>📅 ${p.publication_year}</p>
+    </div>
+  `).join("");
+}
+
+/* ---------------- SEARCH FUNCTIONS ---------------- */
+function domainSearch() {
+  fetch(`/domain?name=${d.value}`)
+    .then(r => r.json()).then(data => renderResults(data, dr));
+}
+
+function keywordSearch() {
+  fetch(`/keyword?key=${k.value}`)
+    .then(r => r.json()).then(data => renderResults(data, kr));
+}
+
+function topicSearch() {
+  fetch(`/topic?name=${t.value}`)
+    .then(r => r.json()).then(data => renderResults(data, tr));
+}
+
+/* ---------------- YEAR TREND ---------------- */
+let yearChart;
+function loadYearAnalytics() {
+  fetch("/analytics/year").then(r => r.json()).then(data => {
+    yearChart?.destroy();
+    yearChart = new Chart(yearChartCanvas(), {
+      type: "line",
+      data: {
+        labels: data.map(d => d.publication_year),
+        datasets: [{
+          label: "Publications per Year",
+          data: data.map(d => d.total),
+          borderColor: "#4f46e5",
+          backgroundColor: "rgba(79,70,229,0.25)",
+          fill: true,
+          tension: 0.4
+        }]
+      },
+      options: axisOptions("Year", "Publications")
+    });
+  });
+}
+
+/* ---------------- DOMAIN TREND ---------------- */
+let domainChart;
+function loadDomainAnalytics() {
+  fetch("/analytics/domain").then(r => r.json()).then(data => {
+    const years = [...new Set(data.map(d => d.publication_year))].sort();
+    const domains = [...new Set(data.map(d => d.domain_name))];
+
+    const datasets = domains.map(dom => ({
+      label: dom,
+      data: years.map(y =>
+        data.find(d => d.domain_name === dom && d.publication_year === y)?.total || 0
+      ),
+      tension: 0.4
+    }));
+
+    domainChart?.destroy();
+    domainChart = new Chart(domainChartCanvas(), {
+      type: "line",
+      data: { labels: years, datasets },
+      options: axisOptions("Year", "Publications")
+    });
+  });
+}
+
+/* ---------------- TOP AUTHORS ---------------- */
+let authorChart;
+function loadTopAuthors() {
+  fetch("/analytics/top-authors").then(r => r.json()).then(data => {
+    authorChart?.destroy();
+    authorChart = new Chart(authorChartCanvas(), {
+      type: "bar",
+      data: {
+        labels: data.map(d => d.faculty_name),
+        datasets: [{
+          label: "Total Publications",
+          data: data.map(d => d.total_publications),
+          backgroundColor: "#4f46e5"
+        }]
+      },
+      options: axisOptions("Faculty", "Publications")
+    });
+  });
+}
+
+/* ---------------- INFLUENCE ---------------- */
+let influenceChart;
+function loadInfluence() {
+  fetch("/analytics/influence").then(r => r.json()).then(data => {
+    influenceChart?.destroy();
+    influenceChart = new Chart(influenceChartCanvas(), {
+      type: "bar",
+      data: {
+        labels: data.map(d => d.faculty_name),
+        datasets: [{
+          label: "Influence Score",
+          data: data.map(d => d.influence_score),
+          backgroundColor: "#22c55e"
+        }]
+      },
+      options: axisOptions("Faculty", "Influence Score")
+    });
+  });
+}
+
+/* ---------------- GAP ---------------- */
+function loadResearchGap() {
+  fetch("/analytics/research-gap")
+    .then(res => res.json())
+    .then(data => {
+      const tbody = document.querySelector("#gapTable tbody");
+      tbody.innerHTML = "";
+
+      if (!data.length) {
+        tbody.innerHTML = `<tr><td colspan="4">No data available</td></tr>`;
+        return;
+      }
+
+      data.forEach(x => {
+
+        // ✅ ADD THIS PART
+        const badge =
+          x.status === "Stable"
+            ? "🟢 Stable"
+            : x.status === "Emerging"
+            ? "🟡 Emerging"
+            : "🔴 Research Gap";
+
+        // ✅ USE badge HERE
+        tbody.innerHTML += `
+          <tr>
+            <td>${x.domain}</td>
+            <td>${x.total_papers}</td>
+            <td>${x.growth}</td>
+            <td>${badge}</td>
+          </tr>
+        `;
+      });
+    })
+    .catch(err => console.error(err));
+}
+
+
+/* ---------------- NETWORK ---------------- */
+function loadNetwork() {
+  fetch("/analytics/network").then(r => r.json()).then(data => {
+    const tbody = document.querySelector("#networkTable tbody");
+    tbody.innerHTML = data.map(d => `
+      <tr>
+        <td>${d.faculty_name}</td>
+        <td>${d.domain_name}</td>
+        <td>${d.papers}</td>
+      </tr>
+    `).join("");
+  });
+}
+
+/* ---------------- HELPERS ---------------- */
+const yearChartCanvas = () => document.getElementById("yearChart").getContext("2d");
+const domainChartCanvas = () => document.getElementById("domainChart").getContext("2d");
+const authorChartCanvas = () => document.getElementById("authorChart").getContext("2d");
+const influenceChartCanvas = () => document.getElementById("influenceChart").getContext("2d");
+
+function axisOptions(xLabel, yLabel) {
+  return {
+    responsive: true,
+    maintainAspectRatio: false,   // 🔑 THIS IS CRITICAL
+    scales: {
+      x: {
+        title: {
+          display: true,
+          text: xLabel
+        }
+      },
+      y: {
+        beginAtZero: true,
+        title: {
+          display: true,
+          text: yLabel
+        }
+      }
+    },
+    plugins: {
+      legend: {
+        position: "bottom"
+      }
+    }
+  };
+}
+
+function loadPaperQuartiles() {
+  fetch("/analytics/paper-quality")
+    .then(res => res.json())
+    .then(data => {
+      const tbody = document.querySelector("#paperQualityTable tbody");
+      tbody.innerHTML = "";
+
+      if (!data.length) {
+        tbody.innerHTML =
+          "<tr><td colspan='3'>No quartile data available</td></tr>";
+        return;
+      }
+
+      data.forEach(p => {
+        let badge =
+          p.quartile === "Q1" ? "🟢 Q1" :
+          p.quartile === "Q2" ? "🟡 Q2" :
+          p.quartile === "Q3" ? "🟠 Q3" :
+          p.quartile === "Q4" ? "🔴 Q4" :
+          "⚪ Not Indexed";
+
+        tbody.innerHTML += `
+          <tr>
+            <td>${p.title}</td>
+            <td>${p.domain_name}</td>
+            <td><strong>${badge}</strong></td>
+          </tr>
+        `;
+      });
+    })
+    .catch(err => {
+      console.error(err);
+      alert("Error loading paper quartiles. Check console.");
+    });
+}
+
+
+</script>
+</body>
+</html>
